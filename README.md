@@ -2,7 +2,7 @@
 
 Mindastra 课程建设技能集：把真实目标与手头资料，变成**可导入平台、可交付教学**的课程资产。
 
-本仓库是 [Mindastra](https://mindnexus.multii.cn) 课程建设类技能的官方发布仓库，每个技能采用可移植的 Agent Skills 布局（`SKILL.md` + references + scripts），可在 Claude Code、Codex、OpenClaw 等任何兼容 Agent Skills 的工具中离线使用。
+本仓库是 [Mindastra](https://mindastra.space)) 课程建设类技能的官方发布仓库，每个技能采用可移植的 Agent Skills 布局（`SKILL.md` + references + scripts），可在 Claude Code、Codex、OpenClaw 等任何兼容 Agent Skills 的工具中离线使用。
 
 ## 技能一览
 
@@ -60,7 +60,7 @@ python3 goal-oriented-pbl-course/scripts/audit_package.py <课程资料包目录
 
 导入即创建新课程草稿（纯新增，不改既有数据）；发布前需在课程管理中配置至少 1 个期次。
 
-完整的图文使用笔记（从安装到发布全流程）见平台技能页：<https://mindnexus.multii.cn/skills>
+完整的图文使用笔记（从安装到发布全流程）见平台技能页：<https://mindastra.space/skills>
 
 ## 目录结构
 
