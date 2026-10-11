@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal-Oriented PBL Course"
+  short_description: "Guide project-first PBL course creation"
+  default_prompt: "Use $goal-oriented-pbl-course to turn a real project goal and source material into a mentor-approved PBL course design."
