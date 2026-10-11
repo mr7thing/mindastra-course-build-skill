@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SKILL_NAME="goal-oriented-pbl-course"
+# 技能名派生自目录本身：本脚本位于 <skill>/scripts/，技能目录即自包含安装单元
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILL_NAME="$(basename "$SOURCE_DIR")"
 TARGET="${1:-}"
 PROJECT_ROOT="${2:-$(pwd)}"
 

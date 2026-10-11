@@ -172,7 +172,7 @@ Do NOT carry `weight`, total-score, or average-score fields into `evaluation_tem
 
 ## 3. Validation Gate (before hand-off)
 
-**Deterministic auditor (mandatory):** run `skills/goal-oriented-pbl-course/scripts/audit_package.py <pkg-dir>` — it encodes every check below plus rule 3/15/16 hard gates (submission_requirements AI-log/reflection items, checklist AI/reflection items, `guide_file` existence, steps 3-7 with real descriptions, practice enums/anchors). Exit code 0 = hand-off allowed; any ERROR blocks hand-off.
+**Deterministic auditor (mandatory):** run `goal-oriented-pbl-course/scripts/audit_package.py <pkg-dir>` — it encodes every check below plus rule 3/15/16 hard gates (submission_requirements AI-log/reflection items, checklist AI/reflection items, `guide_file` existence, steps 3-7 with real descriptions, practice enums/anchors). Exit code 0 = hand-off allowed; any ERROR blocks hand-off.
 
 - `id`/`title` present; `lessons` and `assignments` arrays valid.
 - Exactly one core `assignment` (one project per course).
@@ -248,4 +248,4 @@ Rules:
   2. 导入/上传课件 zip → `POST /api/v1/courses/{id}/courseware`（scope `courseware:write`；上传即草稿）→ `POST …/courseware/publish`（仅 FACILITATOR）；
   3. 课前准备工具清单（可选）：`PUT /api/v1/courses/{id}/preparations` `{"note": "…", "items": [{"document_id": "doc_…", "order_index": 0}]}`；
   4. 发布流程需 creator/导师双确认（GUI 或对应 command 端点），Agent 导入后以草稿态交付人工确认发布。
-- 课件制作规范另见姊妹技能 `skills/interactive-courseware/SKILL.md`。
+- 课件制作规范另见本仓库姊妹技能 [`../interactive-courseware/SKILL.md`](../interactive-courseware/SKILL.md)。
