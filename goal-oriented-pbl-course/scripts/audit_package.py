@@ -362,6 +362,147 @@ def audit_extras(m: dict, rep: Report) -> None:
 
 
 # ---------------------------------------------------------------------------
+#  5.6 交互引导层（interaction v1 + prompts[]）
+# ---------------------------------------------------------------------------
+INTERACTION_MODES = {"none", "reflection", "text", "link", "attachment"}
+GENERATION_TYPES = {"text", "image", "audio", "video"}
+REFLECTION_FIELD_TYPES = {"single_select", "confirm", "textarea"}
+
+
+def _audit_prompt(prompt: object, tag: str, prompt_keys: set[str], rep: Report) -> None:
+    if not isinstance(prompt, dict):
+        rep.err(f"{tag}.prompt 必须是对象")
+        return
+    text = prompt.get("text")
+    ref = prompt.get("ref")
+    if isinstance(text, str) and text.strip():
+        return
+    if isinstance(ref, str) and ref.strip():
+        if not ref.startswith("prompt:"):
+            rep.err(f"{tag}.prompt.ref 非法（应为 prompt:<key>@<version>）：{ref!r}")
+            return
+        key = ref[len("prompt:"):].split("@", 1)[0]
+        if key not in prompt_keys:
+            rep.err(f"{tag}.prompt.ref 指向不存在的 prompts key：{key}")
+        return
+    rep.err(f"{tag}.prompt 必须有非空 text 或 ref")
+
+
+def _audit_interaction(cfg: object, tag: str, prompt_keys: set[str], rep: Report) -> None:
+    if cfg is None:
+        return
+    if not isinstance(cfg, dict):
+        rep.err(f"{tag}.interaction 必须是对象")
+        return
+    if cfg.get("schema_version") != 1:
+        rep.err(f"{tag}.interaction.schema_version 必须为 1")
+    if not isinstance(cfg.get("enabled"), bool):
+        rep.err(f"{tag}.interaction.enabled 必须是布尔")
+    if cfg.get("default_mode", "full") not in {"full", "guided"}:
+        rep.err(f"{tag}.interaction.default_mode 必须是 full/guided")
+    steps = cfg.get("steps")
+    if cfg.get("enabled") and (not isinstance(steps, list) or not steps):
+        rep.err(f"{tag}.interaction.steps 启用时必须是非空数组")
+        steps = []
+    seen_steps: set[str] = set()
+    for i, step in enumerate(steps or []):
+        stag = f"{tag}.interaction.steps[{i}]"
+        if not isinstance(step, dict):
+            rep.err(f"{stag} 必须是对象")
+            continue
+        key = step.get("key")
+        if not isinstance(key, str) or not key.strip():
+            rep.err(f"{stag}.key 必填")
+        elif key in seen_steps:
+            rep.err(f"{stag}.key 重复：{key}")
+        else:
+            seen_steps.add(key)
+        if "ai_guided" in step and not isinstance(step["ai_guided"], bool):
+            rep.err(f"{stag}.ai_guided 必须是布尔")
+        options = step.get("options") or []
+        if not isinstance(options, list):
+            rep.err(f"{stag}.options 必须是数组")
+            options = []
+        seen_opt: set[str] = set()
+        for j, opt in enumerate(options):
+            if not isinstance(opt, dict) or not isinstance(opt.get("id"), str) or not isinstance(opt.get("label"), str):
+                rep.err(f"{stag}.options[{j}] 必须含 string id/label")
+                continue
+            if opt["id"] in seen_opt:
+                rep.err(f"{stag}.options id 重复：{opt['id']}")
+            seen_opt.add(opt["id"])
+        if "prompt" in step:
+            _audit_prompt(step["prompt"], stag, prompt_keys, rep)
+    reflection = cfg.get("reflection")
+    if reflection is not None:
+        if not isinstance(reflection, dict):
+            rep.err(f"{tag}.interaction.reflection 必须是对象")
+        else:
+            fields = reflection.get("fields") or []
+            if not isinstance(fields, list):
+                rep.err(f"{tag}.interaction.reflection.fields 必须是数组")
+                fields = []
+            for i, field in enumerate(fields):
+                ftag = f"{tag}.interaction.reflection.fields[{i}]"
+                if not isinstance(field, dict):
+                    rep.err(f"{ftag} 必须是对象")
+                    continue
+                ftype = field.get("type")
+                if ftype not in REFLECTION_FIELD_TYPES:
+                    rep.err(f"{ftag}.type 非法：{ftype!r}")
+                if ftype == "single_select" and not field.get("options"):
+                    rep.err(f"{ftag} single_select 必须有 options")
+    submission = cfg.get("submission")
+    if submission is not None:
+        if not isinstance(submission, dict):
+            rep.err(f"{tag}.interaction.submission 必须是对象")
+        else:
+            mode = submission.get("mode", "none")
+            if mode not in INTERACTION_MODES:
+                rep.err(f"{tag}.interaction.submission.mode 非法：{mode!r}")
+            for i, field in enumerate(submission.get("fields") or []):
+                ftype = field.get("generation") if isinstance(field, dict) else None
+                if ftype is not None and ftype not in GENERATION_TYPES:
+                    rep.err(f"{tag}.interaction.submission.fields[{i}].generation 非法：{ftype!r}")
+
+
+def audit_interaction(m: dict, rep: Report) -> None:
+    prompts = m.get("prompts") or []
+    prompt_keys: set[str] = set()
+    if not isinstance(prompts, list):
+        rep.err("prompts 必须是数组")
+        prompts = []
+    for i, item in enumerate(prompts):
+        ptag = f"prompts[{i}]"
+        if not isinstance(item, dict):
+            rep.err(f"{ptag} 必须是对象")
+            continue
+        key = item.get("key")
+        if not isinstance(key, str) or not key.strip():
+            rep.err(f"{ptag}.key 必填")
+        elif key in prompt_keys:
+            rep.err(f"{ptag}.key 重复：{key}")
+        else:
+            prompt_keys.add(key)
+        if not isinstance(item.get("text"), str) or not item["text"].strip():
+            rep.err(f"{ptag}.text 必填")
+
+    for i, p in enumerate(m.get("practices") or []):
+        if isinstance(p, dict):
+            _audit_interaction(p.get("interaction"), f"practices[{i}]", prompt_keys, rep)
+    for ai, a in enumerate(m.get("assignments") or []):
+        if not isinstance(a, dict):
+            continue
+        for mi, spec in enumerate(a.get("milestone_specs") or []):
+            if isinstance(spec, dict):
+                _audit_interaction(
+                    spec.get("interaction"),
+                    f"assignments[{ai}].milestone_specs[{mi}]",
+                    prompt_keys, rep,
+                )
+
+
+# ---------------------------------------------------------------------------
 #  入口
 # ---------------------------------------------------------------------------
 def audit(pkg: Path) -> Report:
@@ -375,6 +516,7 @@ def audit(pkg: Path) -> Report:
     titles = audit_chapters(m, pkg, rep)
     keys = audit_assignment(m, pkg, rep)
     audit_practices(m, titles, keys, rep)
+    audit_interaction(m, rep)
     audit_extras(m, rep)
     rep.dump()
     return rep

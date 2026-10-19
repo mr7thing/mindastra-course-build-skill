@@ -132,6 +132,52 @@ requires every milestone spec to carry `milestone_key` + an `evaluation_template
 }
 ```
 
+### 1.1 Optional interaction layer (2026-10-19)
+
+`practices[].interaction` and `assignments[].milestone_specs[].interaction` MAY define a guidance layer.
+It never changes `submission_mode`; final artifacts still use the existing mode / `submission_fields`.
+
+```jsonc
+"prompts": [                              // optional registry; ref-target for interaction steps
+  { "key": "material_diagnosis", "version": 1, "text": "可直接复制的提示词…" }
+],
+"practices": [
+  {
+    // … existing practice fields …
+    "interaction": {
+      "schema_version": 1,
+      "enabled": true,
+      "default_mode": "guided",           // guided | full
+      "steps": [
+        {
+          "key": "s1",                     // stable id; changing it breaks existing traces
+          "question": "先选一个方向",
+          "options": [{ "id": "a", "label": "生活方式" }, { "id": "b", "label": "空间叙事" }],
+          "allow_other": true,
+          "ai_guided": false,
+          "prompt": { "ref": "prompt:material_diagnosis@1" }   // or { "text": "..." }
+        }
+      ],
+      "fallback": { "text": "AI 引导暂不可用时的静态说明" },
+      "reflection": {
+        "enabled": true,
+        "fields": [
+          { "key": "reflection_result", "type": "single_select", "title": "结果如何？",
+            "required": true,
+            "options": [{ "value": "good", "label": "好" }, { "value": "bad", "label": "不好" }] }
+        ]
+      },
+      "submission": { "mode": "text", "fields": [] }   // mode ∈ existing five values
+    }
+  }
+]
+```
+
+Validation: `schema_version=1`; `enabled` boolean; step `key` unique; option `id` unique; `ai_guided`
+boolean; each `prompt` has non-empty `text` or a `prompt:<key>@<version>` ref resolvable in `prompts[]`;
+`reflection.fields[].type` ∈ `single_select|confirm|textarea` (single_select needs non-empty options);
+`submission.mode` ∈ five values; `fields[].generation` ∈ `text|image|audio|video`.
+
 ## 2. Mapping From Design Contracts
 
 | Skill contract (design) | Platform course JSON |

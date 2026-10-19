@@ -236,3 +236,24 @@ Do not create empty downstream files early. Create each artifact only after its 
 - Offer optional **spaced-review consolidation** (learn-anything style R1/R2/R3/R4 intervals) after milestone completion as training modules; review cycles are never milestones and never hard requirements.
 - Defer team composition, capability seats, badge-based crew assembly, demand crowdfunding, and mentor bounties unless the user explicitly asks for collaborative or Jump Gate design.
 - Do not implement host-platform code, publish courses, consume licenses, or call paid models unless the user explicitly requests those actions and the environment supports them.
+
+## Interaction layer (optional, 2026-10-19 decision)
+
+A practice or milestone MAY carry an `interaction` block (schema v1). It is a **guidance layer, not a
+submission mode**:
+
+- linear `steps[]` with stable `key`s, `question`, `options[]` (`id`/`label`), `allow_other`, `ai_guided`;
+- optional `prompt` per step: inline `{"text": "..."}` or `{"ref": "prompt:<key>@<version>"}` pointing into
+  the package-level `prompts[]` registry (the only legal reference form);
+- optional `reflection.fields[]` with `single_select` / `confirm` / `textarea` for an in-flow survey;
+- `submission.mode` stays inside the existing five values (`none|reflection|text|link|attachment`) and the
+  final artifact is still submitted through that mode / the milestone `submission_fields`.
+
+Rules:
+
+1. AI at runtime may only produce the next question/options/prompt — never the learner's artifact and never
+   overwrite an answer. Output that violates this is rejected and the flow degrades to static steps.
+2. When a submission field declares `generation` (`text|image|audio|video`), the interaction trace must
+   contain the generated prompt; otherwise submission is rejected (422).
+3. Deterministic audit (`scripts/audit_package.py`) validates interaction structure and every prompt ref;
+   invalid interaction blocks hand-off (ERROR).
