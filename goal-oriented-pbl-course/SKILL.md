@@ -257,3 +257,23 @@ Rules:
    contain the generated prompt; otherwise submission is rejected (422).
 3. Deterministic audit (`scripts/audit_package.py`) validates interaction structure and every prompt ref;
    invalid interaction blocks hand-off (ERROR).
+
+Design discipline (when to enable, how to shape the flow — 2026-10-21):
+
+- **Enable by judgment, not by default.** Enable when the task opens with a decision the learner can
+  make from course material (compare examples, pick a direction, spot a claimed detail) AND the first
+  screen would otherwise stall ("where do I even start"). Do not enable for pure writing/creation
+  tasks, learners with an established external workflow, or one-sentence actions — a forced quiz is
+  bureaucracy, not scaffolding.
+- **Shape steps as three layers**: layer 1 = one completable action producing a minimal result (a
+  choice with a stated reason); layer 2 = compare against the course's examples/prompts — learner
+  confirms, edits, or rejects AI output and checks for fabricated details; layer 3 = collect only
+  what is still missing for formal submission.
+- **Options are scaffolding, not the default form.** Steps requiring real writing, judgment, or
+  creation must set `allow_other: true` and carry a `prompt`; never convert `rules` (acceptance
+  criteria) into a quiz sequence — rules belong to evaluation.
+- **Fallback discipline**: `enabled: true` REQUIRES `fallback.text` — with AI unavailable, the static
+  steps must still carry the learner to a submittable state (audit gate).
+- **Map, don't re-ask**: a step whose answer becomes a submission field's content SHOULD declare
+  `maps_to: "<submission_field_key>"` (milestone interaction only). The learner's step answers
+  pre-fill those fields; already-done work must never be re-typed at submission time.

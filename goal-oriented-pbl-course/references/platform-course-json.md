@@ -178,6 +178,14 @@ boolean; each `prompt` has non-empty `text` or a `prompt:<key>@<version>` ref re
 `reflection.fields[].type` ∈ `single_select|confirm|textarea` (single_select needs non-empty options);
 `submission.mode` ∈ five values; `fields[].generation` ∈ `text|image|audio|video`.
 
+Design gates (deterministic auditor enforces; 2026-10-21): `enabled: true` requires `fallback.text`;
+every step carries a non-empty `question` and is executable (options, `allow_other`, or `ai_guided`).
+`steps[].maps_to` (optional, **milestone interaction only**) names a `key` in the same milestone's
+`submission_fields`; the runner pre-fills blank fields from the step answers (choice label or "other"
+text; multiple steps mapping to one field join with newline). Practices do not support `maps_to` in
+v1 — the practice trace stays an experience record, cited into milestone submissions via the manual
+`practice_refs` channel.
+
 ## 2. Mapping From Design Contracts
 
 | Skill contract (design) | Platform course JSON |

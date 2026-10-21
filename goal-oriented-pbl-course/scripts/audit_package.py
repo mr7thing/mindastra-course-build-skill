@@ -388,7 +388,10 @@ def _audit_prompt(prompt: object, tag: str, prompt_keys: set[str], rep: Report) 
     rep.err(f"{tag}.prompt 必须有非空 text 或 ref")
 
 
-def _audit_interaction(cfg: object, tag: str, prompt_keys: set[str], rep: Report) -> None:
+def _audit_interaction(
+    cfg: object, tag: str, prompt_keys: set[str], rep: Report,
+    field_keys: set[str] | None = None,
+) -> None:
     if cfg is None:
         return
     if not isinstance(cfg, dict):
@@ -433,6 +436,25 @@ def _audit_interaction(cfg: object, tag: str, prompt_keys: set[str], rep: Report
             seen_opt.add(opt["id"])
         if "prompt" in step:
             _audit_prompt(step["prompt"], stag, prompt_keys, rep)
+        # 设计门禁（2026-10-21）：可执行性——学员必须知道要做什么、且有动作可做
+        q = step.get("question")
+        if not (isinstance(q, str) and q.strip()):
+            rep.err(f"{stag}.question 缺失（学员须知道当前要做什么）")
+        if not step.get("ai_guided") and not options and not step.get("allow_other"):
+            rep.err(f"{stag} 无 options、未开 allow_other 且非 ai_guided——学员无可执行动作")
+        mt = step.get("maps_to")
+        if mt is not None:
+            if not isinstance(mt, str) or not mt.strip():
+                rep.err(f"{stag}.maps_to 必须是非空字符串")
+            elif field_keys is None:
+                rep.err(f"{stag}.maps_to 仅里程碑交互支持（练习交互 v1 不做字段映射）")
+            elif mt not in field_keys:
+                rep.err(f"{stag}.maps_to 目标字段不存在：{mt}（须为同一里程碑 submission_fields 的 key）")
+    # fallback 纪律：启用后 AI 不可用时学员仍须能凭静态步骤完成
+    if cfg.get("enabled"):
+        fb = cfg.get("fallback")
+        if not (isinstance(fb, dict) and isinstance(fb.get("text"), str) and fb["text"].strip()):
+            rep.err(f"{tag}.interaction 启用时必须提供 fallback.text（AI 不可用时学员仍可凭静态步骤完成）")
     reflection = cfg.get("reflection")
     if reflection is not None:
         if not isinstance(reflection, dict):
@@ -489,16 +511,20 @@ def audit_interaction(m: dict, rep: Report) -> None:
 
     for i, p in enumerate(m.get("practices") or []):
         if isinstance(p, dict):
-            _audit_interaction(p.get("interaction"), f"practices[{i}]", prompt_keys, rep)
+            _audit_interaction(p.get("interaction"), f"practices[{i}]", prompt_keys, rep, field_keys=None)
     for ai, a in enumerate(m.get("assignments") or []):
         if not isinstance(a, dict):
             continue
         for mi, spec in enumerate(a.get("milestone_specs") or []):
             if isinstance(spec, dict):
+                fkeys = {
+                    f.get("key") for f in (spec.get("submission_fields") or [])
+                    if isinstance(f, dict) and isinstance(f.get("key"), str)
+                }
                 _audit_interaction(
                     spec.get("interaction"),
                     f"assignments[{ai}].milestone_specs[{mi}]",
-                    prompt_keys, rep,
+                    prompt_keys, rep, field_keys=fkeys,
                 )
 
 
