@@ -277,3 +277,28 @@ Design discipline (when to enable, how to shape the flow — 2026-10-21):
 - **Map, don't re-ask**: a step whose answer becomes a submission field's content SHOULD declare
   `maps_to: "<submission_field_key>"` (milestone interaction only). The learner's step answers
   pre-fill those fields; already-done work must never be re-typed at submission time.
+
+Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
+
+- **Two layers, two owners.** The structure layer (step order, closed checks, field coverage,
+  `maps_to`) is static and identical for every learner; the prompt layer (steps carrying a `prompt`
+  card) is adaptive. The invariant: **a step with a `prompt` sets `ai_guided: true`; a step without
+  one sets `ai_guided: false`.** Never let the runtime LLM rewrite closed checks, and never ship a
+  fully static prompt flow (that degenerates into read-aloud scripts — every learner must be able to
+  get a template adjusted toward their chosen direction).
+- **Closed-branch checks, no open questions.** Every guidance step must converge to one determined
+  result. Uncertainty is eliminated BY the guidance, not explored by it: fabrication checks use the
+  pattern 「没有编造 / 有——在『其他』写明是哪几处」, completion checks use count thresholds
+  (≥8 cards, ≥3 revisions, all four QC categories), never free-form "what did you learn" prompts.
+- **Milestone interaction = field-by-field walkthrough of `submission_fields`.** A milestone with
+  many fields is grouped and walked in order: orientation choice (with `maps_to`) → content fields
+  (template resource card + draft prompt card + closed completion confirm) → list thresholds → asset
+  readiness → shared tail: AI-interaction record (three-column summary protocol: prompts used verbatim /
+  output points / items needing verification) → reflection draft (three-section outline: AI's
+  contribution / what I caught and changed / self-calibration) → final per-field inventory step
+  (missing fields reported via `allow_other`). No submission field may be left un-guided.
+- **Prompt cards are templates, not scripts.** The static card is the fallback and the base
+  template; the runtime AI personalizes it using the learner's earlier answers (direction, question,
+  work type) so the copied prompt arrives pre-filled. Anti-fabrication clauses (cite source positions,
+  mark inferences, list possible fabrications) must live in the static card so they survive
+  degradation.
