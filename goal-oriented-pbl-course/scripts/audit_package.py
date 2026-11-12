@@ -16,7 +16,7 @@
 #  分级：ERROR = 导入/发布失败或规则 16 判定为"模板级填充"，必须修；
 #        WARN  = 内容深度不足，人工判断。
 #
-#  用法：python3 audit_package.py <pkg-dir> [<pkg-dir> ...]
+#  用法：python3 audit_package.py <pkg-dir|pkg.zip> [<pkg-dir|pkg.zip> ...]
 #        python3 audit_package.py --all   # 扫 content/course-packages/*
 #  退出码：0 全部通过；1 存在 ERROR；2 用法/IO 错误。
 # =============================================================================
@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import zipfile
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -36,6 +37,9 @@ PRACTICE_KINDS = {"experience", "training", "evidence"}
 SUBMISSION_MODES = {"none", "reflection", "text", "link", "attachment"}
 RESOURCE_TYPES = {"template", "example", "short_doc", "video_link", "external", "package_file"}
 THINKING_FIELDS = {"problem_statement", "key_basis"}
+# 平台预填可写类型：coercePrefill 只支持文本三型 + single_select（按 option value 反查）。
+# list/group_list/asset/confirm/link 写不进去，覆盖率审计对它们只报 WARN。
+PREFILLABLE_TYPES = {"text", "textarea", "markdown", "single_select"}
 EPS = 0.011  # 浮点权重容差（0.25*4 / 0.3+0.4+0.3 均需落在 1.0±EPS）
 MIN_CHAPTER_CHARS = 600  # 作者级章节正文下限（WARN）
 
@@ -391,6 +395,7 @@ def _audit_prompt(prompt: object, tag: str, prompt_keys: set[str], rep: Report) 
 def _audit_interaction(
     cfg: object, tag: str, prompt_keys: set[str], rep: Report,
     field_keys: set[str] | None = None,
+    field_defs: dict[str, dict] | None = None,
 ) -> None:
     if cfg is None:
         return
@@ -450,6 +455,43 @@ def _audit_interaction(
                 rep.err(f"{stag}.maps_to 仅里程碑交互支持（练习交互 v1 不做字段映射）")
             elif mt not in field_keys:
                 rep.err(f"{stag}.maps_to 目标字段不存在：{mt}（须为同一里程碑 submission_fields 的 key）")
+    # 字段覆盖审计（2026-11-12）：SKILL.md 的 "No submission field may be left un-guided"
+    # 此前只是文档约定，没有机器判据——练习/里程碑大量字段"问过但进不了提交表"就是这么漏的。
+    #
+    # 分级按"平台能不能把这个答案写进该字段"决定，否则会出现永远修不掉的 ERROR：
+    #   - 可写类型（PREFILLABLE_TYPES）：没被 maps_to 覆盖 → ERROR（真的漏了）
+    #   - 结构不可预填（list/group_list/asset/confirm/link）：→ WARN（写不进去，属预期）
+    #   - 作者显式声明 prefill: never + prefill_reason：两者都跳过（有意的例外，不算漏）
+    if field_keys is not None and cfg.get("enabled"):
+        mapped = [
+            s.get("maps_to") for s in (steps or [])
+            if isinstance(s, dict) and isinstance(s.get("maps_to"), str) and s.get("maps_to").strip()
+        ]
+        for k in sorted(field_keys - set(mapped)):
+            field = field_defs.get(k) if isinstance(field_defs, dict) else None
+            ftype = (field or {}).get("type")
+            if (field or {}).get("prefill") == "never":
+                reason = str((field or {}).get("prefill_reason") or "").strip()
+                if not reason:
+                    rep.err(f"{tag}.submission_fields「{k}」声明 prefill: never 但缺少 prefill_reason")
+                continue
+            if ftype in PREFILLABLE_TYPES or ftype is None:
+                rep.err(
+                    f"{tag}.submission_fields「{k}」没有任何 step 的 maps_to 覆盖"
+                    f"（类型 {ftype or '?'} 可预填，引导若问过就该接上；确属手填请标 prefill: never + 理由）"
+                )
+            else:
+                rep.warn(
+                    f"{tag}.submission_fields「{k}」未被 maps_to 覆盖——类型 {ftype} 平台不支持预填，"
+                    f"若该字段确由引导产生内容，需改字段类型或标 prefill: never 说明"
+                )
+        dupes = sorted({m for m in mapped if mapped.count(m) > 1})
+        for d in dupes:
+            rep.warn(
+                f"{tag}: 多个 step 映射到同一字段「{d}」——运行时会按步序换行拼接进同一栏，"
+                f"确认这些答案读成一段是作者本意"
+            )
+
     # fallback 纪律：启用后 AI 不可用时学员仍须能凭静态步骤完成
     if cfg.get("enabled"):
         fb = cfg.get("fallback")
@@ -517,21 +559,57 @@ def audit_interaction(m: dict, rep: Report) -> None:
             continue
         for mi, spec in enumerate(a.get("milestone_specs") or []):
             if isinstance(spec, dict):
-                fkeys = {
-                    f.get("key") for f in (spec.get("submission_fields") or [])
+                fdefs = {
+                    f["key"]: f for f in (spec.get("submission_fields") or [])
                     if isinstance(f, dict) and isinstance(f.get("key"), str)
                 }
                 _audit_interaction(
                     spec.get("interaction"),
                     f"assignments[{ai}].milestone_specs[{mi}]",
-                    prompt_keys, rep, field_keys=fkeys,
+                    prompt_keys, rep, field_keys=set(fdefs), field_defs=fdefs,
                 )
 
 
 # ---------------------------------------------------------------------------
 #  入口
 # ---------------------------------------------------------------------------
+def audit_zip(path: Path) -> Report:
+    """zip 直审：只校验打包布局，内容须解包到包目录再用目录模式审。
+
+    契约（content/CLAUDE.md）：zip 根部即 manifest，从包目录内部打包，
+    禁止包裹一层顶层文件夹。后端对多包一层是容忍的，所以这条只能靠审计器拦。
+    """
+    rep = Report(path.name)
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = [n for n in zf.namelist() if n and not n.endswith("/")]
+    except (zipfile.BadZipFile, OSError) as e:
+        rep.err(f"无法读取 zip：{e}")
+        rep.dump()
+        return rep
+    if not names:
+        rep.err("zip 为空")
+    elif "course.json" in names:
+        pass  # 根部即 manifest，合规
+    else:
+        tops = {n.split("/", 1)[0] for n in names}
+        if len(tops) != 1:
+            rep.err(f"zip 顶部结构不唯一（{sorted(tops)[:3]}…）——须从包目录内部打包，根部即 course.json")
+        else:
+            top = next(iter(tops))
+            if f"{top}/{top}/" in " ".join(names):
+                rep.err(f"zip 根目录多包了一层同名目录「{top}/{top}/」——须从包目录内部打包")
+            elif f"{top}/course.json" in names:
+                rep.err(f"zip 多包了一层顶层目录「{top}/」——契约要求 zip 根部即 manifest（course.json）")
+            else:
+                rep.err(f"zip 内找不到 course.json（顶层为「{top}/」）")
+    rep.dump()
+    return rep
+
+
 def audit(pkg: Path) -> Report:
+    if pkg.suffix.lower() == ".zip":
+        return audit_zip(pkg)
     loaded = _load(pkg)
     if loaded is None:
         return Report(pkg.name)
@@ -554,7 +632,16 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     if args == ["--all"]:
-        root = Path(__file__).resolve().parents[3] / "content" / "course-packages"
+        # 技能以 git 子模块形式分发，脚本深度不固定：从脚本位置向上找 content/course-packages
+        root = None
+        for base in Path(__file__).resolve().parents:
+            cand = base / "content" / "course-packages"
+            if cand.is_dir():
+                root = cand
+                break
+        if root is None:
+            print("找不到 content/course-packages（--all 只能在课程仓库内使用）")
+            return 2
         pkgs = sorted(p for p in root.iterdir() if (p / "course.json").is_file())
     else:
         pkgs = [Path(a) for a in args]

@@ -274,9 +274,15 @@ Design discipline (when to enable, how to shape the flow — 2026-10-21):
   criteria) into a quiz sequence — rules belong to evaluation.
 - **Fallback discipline**: `enabled: true` REQUIRES `fallback.text` — with AI unavailable, the static
   steps must still carry the learner to a submittable state (audit gate).
-- **Map, don't re-ask**: a step whose answer becomes a submission field's content SHOULD declare
+  **Map, don't re-ask**: a step whose answer becomes a submission field's content MUST declare
   `maps_to: "<submission_field_key>"` (milestone interaction only). The learner's step answers
-  pre-fill those fields; already-done work must never be re-typed at submission time.
+  pre-fill those fields; already-done work must never be re-typed at submission time. Every
+  `submission_fields` key must be covered by at least one step's `maps_to` — the audit script
+  fails the package otherwise (`audit_package.py`, 2026-11-12). Leaving a field un-guided is an
+  exception that must be stated in the package notes with a reason ("this field is deliberately
+  hand-written because ..."), never a silent omission. Two steps mapping to the SAME key is
+  allowed only when the two answers are meant to read as one paragraph — the runtime joins them
+  with a newline in step order, and the audit script raises a WARN so the author confirms it.
 
 Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
 
@@ -286,6 +292,12 @@ Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
   one sets `ai_guided: false`.** Never let the runtime LLM rewrite closed checks, and never ship a
   fully static prompt flow (that degenerates into read-aloud scripts — every learner must be able to
   get a template adjusted toward their chosen direction).
+- **The runtime replaces the question, so never build logic on its text.** For any step with
+  `ai_guided: true`, the platform may regenerate `question` and `options` from the step + history
+  at runtime; the authored wording is not guaranteed to appear. Therefore a step's value must sit
+  in its `maps_to` (the answer reaches a submission field) or in its `prompt` (the learner copies a
+  usable card) — never in the phrasing of the question itself. Do not write prefill logic, checks or
+  grading that depend on the question text, and do not rely on option ids surviving a rewrite.
 - **Closed-branch checks, no open questions.** Every guidance step must converge to one determined
   result. Uncertainty is eliminated BY the guidance, not explored by it: fabrication checks use the
   pattern 「没有编造 / 有——在『其他』写明是哪几处」, completion checks use count thresholds
