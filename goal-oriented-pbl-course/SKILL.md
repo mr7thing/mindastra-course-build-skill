@@ -314,3 +314,37 @@ Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
   work type) so the copied prompt arrives pre-filled. Anti-fabrication clauses (cite source positions,
   mark inferences, list possible fabrications) must live in the static card so they survive
   degradation.
+
+### Authoring checklist (human judgment — the audit script cannot check these)
+
+Three failure modes that shipped in a real course and machine checks cannot catch. Read this list
+before declaring a package done.
+
+1. **Every art step must produce something.** A step's value must land somewhere: into a submission
+   field (`maps_to`), out as a copyable prompt card (`prompt`), or explicitly recorded as an
+   experience note. **A step that produces nothing — pure reading, "go look at X", "think about it" —
+   should be deleted.** An experience-type practice may have no `interaction` at all; that is fine.
+   But once steps exist, each one must yield an artifact. (Real case: three consecutive steps that
+   were only reading, contributing nothing to any field and absent from the trace.)
+2. **Any step asking the learner to upload or produce must answer three questions.** Not "what to do"
+   in the abstract — the concrete: **where the material is** (which file, which folder, which prior
+   step's output), **how the entry appears** (which button, whether "next step" must be clicked
+   first), and **what the result looks like** (table headers, field names, format, count). If any of
+   the three is missing, the learner stalls and writes in to ask. (Real case: a five-column table
+   asked for with none of its headers named, and a screen that only appears after clicking through.)
+3. **Enabling decision evidence requires teaching it.** `thinking_requirement` with
+   `require_on_formal_submit: true` forces two boxes (`problem_statement` / `key_basis`) on every
+   learner. Turn it on only when the milestone has a real decision fork **and** the course teaches
+   the distinction between stating the problem and stating the basis. If the package never mentions
+   it anywhere in `steps` / `rules` / `checklist`, learners are forced to fill boxes they were never
+   taught — the audit script raises a WARN for exactly this. (Real case: all five milestones switched
+   on, zero teaching of the two columns, learners stalled.) When in doubt, leave it `false`.
+
+### `prefill: never` is audit-side metadata only (2026-11-12)
+
+Declaring `prefill: never` + `prefill_reason` on a submission field makes the **audit script** stop
+reporting that field as un-covered. It is **not consumed by the platform runtime** — it does not
+change pre-fill behavior, does not disable anything at import, and does not alter what the learner
+sees. Use it to record a deliberate authoring exception ("this field is hand-written because ..."),
+never as a way to fix a runtime problem. If a field genuinely cannot be pre-filled, that is a field
+type limit (`list` / `group_list` / `asset` / `confirm`), not something this flag changes.
