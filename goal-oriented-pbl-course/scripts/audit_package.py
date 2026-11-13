@@ -238,8 +238,9 @@ def audit_dimensions(spec: dict, idx: int, rep: Report, course_text: str = "") -
         if not _teaches_thinking(spec, course_text):
             rep.warn(
                 f"{tag}: 该关开启了决策证据（thinking_requirement），但包里没有教它——"
-                f"steps/rules/checklist 中没有任何一处提到 problem_statement/key_basis"
-                f"（问题陈述、关键依据、决策、取舍、放弃、为什么选），"
+                f"steps/rules/checklist 及章节正文中没有任何一处提到平台那两栏："
+                f"problem_statement / key_basis（问题陈述、关键依据、"
+                f"决策依据、取舍依据、放弃了什么），"
                 f"学员可能不知道该写什么。请在 steps 或 checklist 里补上这两栏的区别；"
                 f"若课程已在别处教过本判据看不到，可忽略本条"
             )
