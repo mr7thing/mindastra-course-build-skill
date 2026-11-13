@@ -85,7 +85,7 @@ constraints
       ],
       "thinking_requirement": {
         "require_on_process_draft": false,
-        "require_on_formal_submit": true,
+        "require_on_formal_submit": false,
         "required_fields": ["problem_statement", "key_basis"]
       },
       "mandatory_submissions": [
@@ -145,7 +145,7 @@ Validation:
 - Dependencies reference known keys, do not repeat, do not reference self, and form no cycles.
 - `blocking=true` requires a non-empty `blocking_reason`.
 - **Process scaffolding (optional per milestone, strongly recommended):** `steps` has 3–7 entries with ascending `order_index`; `checklist` has at least 1 entry; each step carries 0–3 `resources` of an allowed type. Scaffolding is the learner-side "how to do it" — it never replaces `evidence_gate`/`mandatory_submissions` (the acceptance and submission authority).
-- **Thinking evidence (optional per milestone):** `thinking_requirement` declares the structured decision-evidence gate: `require_on_process_draft` / `require_on_formal_submit` and a `required_fields` subset of `problem_statement | key_basis`. When required, the matching submission carries a `thinking` object — `problem_statement`, `key_basis`, optional `alternatives[]` (`{title, why_not}`). This is the short **decision layer** ("why this, what was dropped"); it complements the narrative reflection (`ai_interaction_log_brief` + `participant_analysis_reflection`) already mandatory above, never replaces it.
+- **Thinking evidence (optional per milestone):** `thinking_requirement` declares the structured decision-evidence gate: `require_on_process_draft` / `require_on_formal_submit` and a `required_fields` subset of `problem_statement | key_basis`. When required, the matching submission carries a `thinking` object — `problem_statement`, `key_basis`, optional `alternatives[]` (`{title, why_not}`). This is the short **decision layer** ("why this, what was dropped"); it complements the narrative reflection (`ai_interaction_log_brief` + `participant_analysis_reflection`) already mandatory above, never replaces it. **Default is `false`** (2026-11-12). Turn it on only when the milestone carries a real decision fork whose evidence the review must judge — i.e. two or more defensible directions, and the artifact alone cannot show which was taken or what was dropped (e.g. "which route, and why the other one lost"). Leave it `false` when the milestone is pure production (write it, shoot it, ship it), when the field would only restate the artifact, or when the course never teaches a `problem_statement`/`key_basis` distinction — otherwise every learner pays two mandatory boxes per milestone for evidence the course never asked for.
 
 ## Assessment Bundle
 

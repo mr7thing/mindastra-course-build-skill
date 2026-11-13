@@ -16,7 +16,7 @@
 #  分级：ERROR = 导入/发布失败或规则 16 判定为"模板级填充"，必须修；
 #        WARN  = 内容深度不足，人工判断。
 #
-#  用法：python3 audit_package.py <pkg-dir> [<pkg-dir> ...]
+#  用法：python3 audit_package.py <pkg-dir|pkg.zip> [<pkg-dir|pkg.zip> ...]
 #        python3 audit_package.py --all   # 扫 content/course-packages/*
 #  退出码：0 全部通过；1 存在 ERROR；2 用法/IO 错误。
 # =============================================================================
@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import zipfile
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -36,6 +37,9 @@ PRACTICE_KINDS = {"experience", "training", "evidence"}
 SUBMISSION_MODES = {"none", "reflection", "text", "link", "attachment"}
 RESOURCE_TYPES = {"template", "example", "short_doc", "video_link", "external", "package_file"}
 THINKING_FIELDS = {"problem_statement", "key_basis"}
+# 平台预填可写类型：coercePrefill 只支持文本三型 + single_select（按 option value 反查）。
+# list/group_list/asset/confirm/link 写不进去，覆盖率审计对它们只报 WARN。
+PREFILLABLE_TYPES = {"text", "textarea", "markdown", "single_select"}
 EPS = 0.011  # 浮点权重容差（0.25*4 / 0.3+0.4+0.3 均需落在 1.0±EPS）
 MIN_CHAPTER_CHARS = 600  # 作者级章节正文下限（WARN）
 
@@ -143,7 +147,39 @@ def audit_chapters(m: dict, pkg: Path, rep: Report) -> list[str]:
 # ---------------------------------------------------------------------------
 #  3. 评价维度：语义 key + 完整 levels + 具体 agent_indicators（规则 13/16）
 # ---------------------------------------------------------------------------
-def audit_dimensions(spec: dict, idx: int, rep: Report) -> None:
+# 课程是否教过「决策证据」这一层：认字段名与中英文概念词。
+# 只做关键词匹配，必然有误报——调用方据此只出 WARN。
+# 刻意收窄（2026-11-13）：只认**平台那两栏**的说法，不认泛泛的"决策/取舍"。
+# 设计师课实测教训：章节里写着「关键设计决策（为什么这样设计）」，
+# 但平台强制的是 problem_statement（问题陈述）+ key_basis（关键依据）两栏，
+# 两者不是一回事——用宽关键词匹配会把"章节提到过决策二字"误判成"教过了"。
+THINKING_TEACHING_KEYWORDS = (
+    "problem_statement", "key_basis",
+    "问题陈述", "关键依据",          # 平台两栏本身
+    "决策依据", "取舍依据",          # 明确指向"依据"的复合词
+    "放弃了什么", "放弃了哪些",      # 决策证据的实质内容（不是泛指"放弃"）
+)
+
+
+def _teaches_thinking(spec: dict, course_text: str = "") -> bool:
+    """里程碑 steps/rules/checklist + 章节正文里是否任何一处提到过决策证据相关概念。"""
+    parts: list[str] = []
+    for s in spec.get("steps") or []:
+        if isinstance(s, dict):
+            parts.append(str(s.get("title") or ""))
+            parts.append(str(s.get("description") or ""))
+            for r in s.get("resources") or []:
+                if isinstance(r, dict):
+                    parts.append(str(r.get("title") or ""))
+    for r in spec.get("rules") or []:
+        parts.append(str(r.get("text") or "") if isinstance(r, dict) else str(r))
+    for c in spec.get("checklist") or []:
+        parts.append(str(c.get("text") or "") if isinstance(c, dict) else str(c))
+    joined = " ".join(parts) + " " + course_text
+    return any(k in joined for k in THINKING_TEACHING_KEYWORDS)
+
+
+def audit_dimensions(spec: dict, idx: int, rep: Report, course_text: str = "") -> None:
     tpl = spec.get("evaluation_template") or {}
     dims = tpl.get("dimensions") or []
     tag = f"milestone[{idx}] {spec.get('milestone_key') or '?'}"
@@ -193,6 +229,21 @@ def audit_dimensions(spec: dict, idx: int, rep: Report) -> None:
         bad = set(tr.get("required_fields") or []) - THINKING_FIELDS
         if bad:
             rep.err(f"{tag}: thinking_requirement.required_fields 越界 {sorted(bad)}")
+        # 教没教（2026-11-13，设计师课实战）：开启了决策证据，但包里从没教过
+        # 「问题陈述 vs 关键依据」这一层区别，学员被逼填两栏却不知道该写什么。
+        #
+        # 判定只能靠关键词匹配（steps/rules/checklist 里认不认得这些概念），
+        # 必然有误报——课程可能在直播里讲了、只是没写进包。所以定 WARN，
+        # 并把人要复核的位置（哪几处没提）写进文案，让作者自己判。
+        if not _teaches_thinking(spec, course_text):
+            rep.warn(
+                f"{tag}: 该关开启了决策证据（thinking_requirement），但包里没有教它——"
+                f"steps/rules/checklist 及章节正文中没有任何一处提到平台那两栏："
+                f"problem_statement / key_basis（问题陈述、关键依据、"
+                f"决策依据、取舍依据、放弃了什么），"
+                f"学员可能不知道该写什么。请在 steps 或 checklist 里补上这两栏的区别；"
+                f"若课程已在别处教过本判据看不到，可忽略本条"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +302,7 @@ def audit_scaffold(spec: dict, idx: int, pkg: Path, rep: Report) -> None:
 # ---------------------------------------------------------------------------
 #  5. 项目/练习：一课一毕业项目 + 练习是课堂练习（规则 15）
 # ---------------------------------------------------------------------------
-def audit_assignment(m: dict, pkg: Path, rep: Report) -> list[str]:
+def audit_assignment(m: dict, pkg: Path, rep: Report, course_text: str = "") -> list[str]:
     asg = m.get("assignments") or []
     if len(asg) != 1:
         rep.err(f"assignments 数量={len(asg)}，发布门禁要求恰为 1 个核心项目")
@@ -275,7 +326,7 @@ def audit_assignment(m: dict, pkg: Path, rep: Report) -> list[str]:
             rep.err(f"milestone[{i}] {k}: 缺少 title/description")
         if not (s.get("rules") or []):
             rep.err(f"milestone[{i}] {k}: rules 为空（至少 1 条验收规则）")
-        audit_dimensions(s, i, rep)
+        audit_dimensions(s, i, rep, course_text)
         audit_scaffold(s, i, pkg, rep)
     rub = a.get("rubric") or []
     if len(rub) < 3:
@@ -391,6 +442,7 @@ def _audit_prompt(prompt: object, tag: str, prompt_keys: set[str], rep: Report) 
 def _audit_interaction(
     cfg: object, tag: str, prompt_keys: set[str], rep: Report,
     field_keys: set[str] | None = None,
+    field_defs: dict[str, dict] | None = None,
 ) -> None:
     if cfg is None:
         return
@@ -450,6 +502,43 @@ def _audit_interaction(
                 rep.err(f"{stag}.maps_to 仅里程碑交互支持（练习交互 v1 不做字段映射）")
             elif mt not in field_keys:
                 rep.err(f"{stag}.maps_to 目标字段不存在：{mt}（须为同一里程碑 submission_fields 的 key）")
+    # 字段覆盖审计（2026-11-12）：SKILL.md 的 "No submission field may be left un-guided"
+    # 此前只是文档约定，没有机器判据——练习/里程碑大量字段"问过但进不了提交表"就是这么漏的。
+    #
+    # 分级按"平台能不能把这个答案写进该字段"决定，否则会出现永远修不掉的 ERROR：
+    #   - 可写类型（PREFILLABLE_TYPES）：没被 maps_to 覆盖 → ERROR（真的漏了）
+    #   - 结构不可预填（list/group_list/asset/confirm/link）：→ WARN（写不进去，属预期）
+    #   - 作者显式声明 prefill: never + prefill_reason：两者都跳过（有意的例外，不算漏）
+    if field_keys is not None and cfg.get("enabled"):
+        mapped = [
+            s.get("maps_to") for s in (steps or [])
+            if isinstance(s, dict) and isinstance(s.get("maps_to"), str) and s.get("maps_to").strip()
+        ]
+        for k in sorted(field_keys - set(mapped)):
+            field = field_defs.get(k) if isinstance(field_defs, dict) else None
+            ftype = (field or {}).get("type")
+            if (field or {}).get("prefill") == "never":
+                reason = str((field or {}).get("prefill_reason") or "").strip()
+                if not reason:
+                    rep.err(f"{tag}.submission_fields「{k}」声明 prefill: never 但缺少 prefill_reason")
+                continue
+            if ftype in PREFILLABLE_TYPES or ftype is None:
+                rep.err(
+                    f"{tag}.submission_fields「{k}」没有任何 step 的 maps_to 覆盖"
+                    f"（类型 {ftype or '?'} 可预填，引导若问过就该接上；确属手填请标 prefill: never + 理由）"
+                )
+            else:
+                rep.warn(
+                    f"{tag}.submission_fields「{k}」未被 maps_to 覆盖——类型 {ftype} 平台不支持预填，"
+                    f"若该字段确由引导产生内容，需改字段类型或标 prefill: never 说明"
+                )
+        dupes = sorted({m for m in mapped if mapped.count(m) > 1})
+        for d in dupes:
+            rep.warn(
+                f"{tag}: 多个 step 映射到同一字段「{d}」——运行时会按步序换行拼接进同一栏，"
+                f"确认这些答案读成一段是作者本意"
+            )
+
     # fallback 纪律：启用后 AI 不可用时学员仍须能凭静态步骤完成
     if cfg.get("enabled"):
         fb = cfg.get("fallback")
@@ -517,21 +606,57 @@ def audit_interaction(m: dict, rep: Report) -> None:
             continue
         for mi, spec in enumerate(a.get("milestone_specs") or []):
             if isinstance(spec, dict):
-                fkeys = {
-                    f.get("key") for f in (spec.get("submission_fields") or [])
+                fdefs = {
+                    f["key"]: f for f in (spec.get("submission_fields") or [])
                     if isinstance(f, dict) and isinstance(f.get("key"), str)
                 }
                 _audit_interaction(
                     spec.get("interaction"),
                     f"assignments[{ai}].milestone_specs[{mi}]",
-                    prompt_keys, rep, field_keys=fkeys,
+                    prompt_keys, rep, field_keys=set(fdefs), field_defs=fdefs,
                 )
 
 
 # ---------------------------------------------------------------------------
 #  入口
 # ---------------------------------------------------------------------------
+def audit_zip(path: Path) -> Report:
+    """zip 直审：只校验打包布局，内容须解包到包目录再用目录模式审。
+
+    契约（content/CLAUDE.md）：zip 根部即 manifest，从包目录内部打包，
+    禁止包裹一层顶层文件夹。后端对多包一层是容忍的，所以这条只能靠审计器拦。
+    """
+    rep = Report(path.name)
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = [n for n in zf.namelist() if n and not n.endswith("/")]
+    except (zipfile.BadZipFile, OSError) as e:
+        rep.err(f"无法读取 zip：{e}")
+        rep.dump()
+        return rep
+    if not names:
+        rep.err("zip 为空")
+    elif "course.json" in names:
+        pass  # 根部即 manifest，合规
+    else:
+        tops = {n.split("/", 1)[0] for n in names}
+        if len(tops) != 1:
+            rep.err(f"zip 顶部结构不唯一（{sorted(tops)[:3]}…）——须从包目录内部打包，根部即 course.json")
+        else:
+            top = next(iter(tops))
+            if f"{top}/{top}/" in " ".join(names):
+                rep.err(f"zip 根目录多包了一层同名目录「{top}/{top}/」——须从包目录内部打包")
+            elif f"{top}/course.json" in names:
+                rep.err(f"zip 多包了一层顶层目录「{top}/」——契约要求 zip 根部即 manifest（course.json）")
+            else:
+                rep.err(f"zip 内找不到 course.json（顶层为「{top}/」）")
+    rep.dump()
+    return rep
+
+
 def audit(pkg: Path) -> Report:
+    if pkg.suffix.lower() == ".zip":
+        return audit_zip(pkg)
     loaded = _load(pkg)
     if loaded is None:
         return Report(pkg.name)
@@ -540,7 +665,14 @@ def audit(pkg: Path) -> Report:
         rep.err("manifest 缺少 title")
     audit_ids(m, rep)
     titles = audit_chapters(m, pkg, rep)
-    keys = audit_assignment(m, pkg, rep)
+    # 章节正文也是"教过"的一部分：判据只看里程碑内部会把"章节里讲过"的课误报成没教。
+    parts: list[str] = []
+    for c in m.get("chapters") or []:
+        cf = c.get("content_file") if isinstance(c, dict) else None
+        if isinstance(cf, str) and (pkg / cf).is_file():
+            parts.append((pkg / cf).read_text(encoding="utf-8", errors="replace"))
+    course_text = " ".join(parts)
+    keys = audit_assignment(m, pkg, rep, course_text)
     audit_practices(m, titles, keys, rep)
     audit_interaction(m, rep)
     audit_extras(m, rep)
@@ -554,7 +686,16 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     if args == ["--all"]:
-        root = Path(__file__).resolve().parents[3] / "content" / "course-packages"
+        # 技能以 git 子模块形式分发，脚本深度不固定：从脚本位置向上找 content/course-packages
+        root = None
+        for base in Path(__file__).resolve().parents:
+            cand = base / "content" / "course-packages"
+            if cand.is_dir():
+                root = cand
+                break
+        if root is None:
+            print("找不到 content/course-packages（--all 只能在课程仓库内使用）")
+            return 2
         pkgs = sorted(p for p in root.iterdir() if (p / "course.json").is_file())
     else:
         pkgs = [Path(a) for a in args]

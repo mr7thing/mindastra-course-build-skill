@@ -9,7 +9,7 @@ Guide course design as a staged decision process. Treat the mentor/course naviga
 
 This skill serves an **AI-assisted PBL learning guidance community**. The mentor is therefore two things at once: a **project/industry experience evaluator** (judging craft, domain correctness, and delivery against real-world standards) and an **AI tool usage coach** (teaching how to decompose work into prompts, generate, review, and iterate with AI tools, and when to override AI output). Every milestone submission must prove both sides: the artifact itself, the AI interaction that produced it, and the participant's own analysis of that interaction.
 
-Read [references/domain-model.md](references/domain-model.md) before designing. Read [references/output-contracts.md](references/output-contracts.md) when emitting or validating structured artifacts. When emitting or auditing a course package, ALWAYS verify with the deterministic auditor — `scripts/audit_package.py <pkg-dir> [<pkg-dir> ...]` (or `--all` for `content/course-packages/*`): 0 errors is the hand-off gate; warnings are content-depth prompts, not blockers. Never hand off a package based on eyeballing alone. Read [references/mastery-rubric.md](references/mastery-rubric.md) when designing assessment dimensions and levels. When the deliverable is an **importable MindNexus platform course JSON**, also read [references/platform-course-json.md](references/platform-course-json.md) (maps the design to `course-json-format.md` and the 08-06 publish gate). Read [references/framework-installation.md](references/framework-installation.md) only for installation or framework integration work.
+Read [references/domain-model.md](references/domain-model.md) before designing. Read [references/output-contracts.md](references/output-contracts.md) when emitting or validating structured artifacts. When emitting or auditing a course package, ALWAYS verify with the deterministic auditor — `scripts/audit_package.py <pkg-dir> [<pkg-dir> ...]` (or `--all` for `content/course-packages/*`): 0 errors is the hand-off gate; warnings are content-depth prompts, not blockers. If you change the auditor itself, run its regression suite — `./scripts/run_tests.sh` (7 minimal fixtures under `scripts/fixtures/`, each injecting exactly one defect; the baseline `base_clean` must stay 0 error / 0 warning). Regenerate fixtures with `python3 scripts/make_fixtures.py`. Never hand off a package based on eyeballing alone. Read [references/mastery-rubric.md](references/mastery-rubric.md) when designing assessment dimensions and levels. When the deliverable is an **importable MindNexus platform course JSON**, also read [references/platform-course-json.md](references/platform-course-json.md) (maps the design to `course-json-format.md` and the 08-06 publish gate). Read [references/framework-installation.md](references/framework-installation.md) only for installation or framework integration work.
 
 ## Select The Mode
 
@@ -274,9 +274,15 @@ Design discipline (when to enable, how to shape the flow — 2026-10-21):
   criteria) into a quiz sequence — rules belong to evaluation.
 - **Fallback discipline**: `enabled: true` REQUIRES `fallback.text` — with AI unavailable, the static
   steps must still carry the learner to a submittable state (audit gate).
-- **Map, don't re-ask**: a step whose answer becomes a submission field's content SHOULD declare
+  **Map, don't re-ask**: a step whose answer becomes a submission field's content MUST declare
   `maps_to: "<submission_field_key>"` (milestone interaction only). The learner's step answers
-  pre-fill those fields; already-done work must never be re-typed at submission time.
+  pre-fill those fields; already-done work must never be re-typed at submission time. Every
+  `submission_fields` key must be covered by at least one step's `maps_to` — the audit script
+  fails the package otherwise (`audit_package.py`, 2026-11-12). Leaving a field un-guided is an
+  exception that must be stated in the package notes with a reason ("this field is deliberately
+  hand-written because ..."), never a silent omission. Two steps mapping to the SAME key is
+  allowed only when the two answers are meant to read as one paragraph — the runtime joins them
+  with a newline in step order, and the audit script raises a WARN so the author confirms it.
 
 Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
 
@@ -286,6 +292,12 @@ Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
   one sets `ai_guided: false`.** Never let the runtime LLM rewrite closed checks, and never ship a
   fully static prompt flow (that degenerates into read-aloud scripts — every learner must be able to
   get a template adjusted toward their chosen direction).
+- **The runtime replaces the question, so never build logic on its text.** For any step with
+  `ai_guided: true`, the platform may regenerate `question` and `options` from the step + history
+  at runtime; the authored wording is not guaranteed to appear. Therefore a step's value must sit
+  in its `maps_to` (the answer reaches a submission field) or in its `prompt` (the learner copies a
+  usable card) — never in the phrasing of the question itself. Do not write prefill logic, checks or
+  grading that depend on the question text, and do not rely on option ids surviving a rewrite.
 - **Closed-branch checks, no open questions.** Every guidance step must converge to one determined
   result. Uncertainty is eliminated BY the guidance, not explored by it: fabrication checks use the
   pattern 「没有编造 / 有——在『其他』写明是哪几处」, completion checks use count thresholds
@@ -302,3 +314,37 @@ Hybrid guidance model (structure static, prompts personalized — 2026-10-22):
   work type) so the copied prompt arrives pre-filled. Anti-fabrication clauses (cite source positions,
   mark inferences, list possible fabrications) must live in the static card so they survive
   degradation.
+
+### Authoring checklist (human judgment — the audit script cannot check these)
+
+Three failure modes that shipped in a real course and machine checks cannot catch. Read this list
+before declaring a package done.
+
+1. **Every art step must produce something.** A step's value must land somewhere: into a submission
+   field (`maps_to`), out as a copyable prompt card (`prompt`), or explicitly recorded as an
+   experience note. **A step that produces nothing — pure reading, "go look at X", "think about it" —
+   should be deleted.** An experience-type practice may have no `interaction` at all; that is fine.
+   But once steps exist, each one must yield an artifact. (Real case: three consecutive steps that
+   were only reading, contributing nothing to any field and absent from the trace.)
+2. **Any step asking the learner to upload or produce must answer three questions.** Not "what to do"
+   in the abstract — the concrete: **where the material is** (which file, which folder, which prior
+   step's output), **how the entry appears** (which button, whether "next step" must be clicked
+   first), and **what the result looks like** (table headers, field names, format, count). If any of
+   the three is missing, the learner stalls and writes in to ask. (Real case: a five-column table
+   asked for with none of its headers named, and a screen that only appears after clicking through.)
+3. **Enabling decision evidence requires teaching it.** `thinking_requirement` with
+   `require_on_formal_submit: true` forces two boxes (`problem_statement` / `key_basis`) on every
+   learner. Turn it on only when the milestone has a real decision fork **and** the course teaches
+   the distinction between stating the problem and stating the basis. If the package never mentions
+   it anywhere in `steps` / `rules` / `checklist`, learners are forced to fill boxes they were never
+   taught — the audit script raises a WARN for exactly this. (Real case: all five milestones switched
+   on, zero teaching of the two columns, learners stalled.) When in doubt, leave it `false`.
+
+### `prefill: never` is audit-side metadata only (2026-11-12)
+
+Declaring `prefill: never` + `prefill_reason` on a submission field makes the **audit script** stop
+reporting that field as un-covered. It is **not consumed by the platform runtime** — it does not
+change pre-fill behavior, does not disable anything at import, and does not alter what the learner
+sees. Use it to record a deliberate authoring exception ("this field is hand-written because ..."),
+never as a way to fix a runtime problem. If a field genuinely cannot be pre-filled, that is a field
+type limit (`list` / `group_list` / `asset` / `confirm`), not something this flag changes.
