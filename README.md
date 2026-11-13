@@ -36,6 +36,32 @@ cd mindastra-course-build-skill
 | `all-global` | 以上全局位一次装齐 |
 | `custom <dir>` | 任意 Agent Skills 兼容目录 |
 
+## 审计器回归测试
+
+`goal-oriented-pbl-course/scripts/audit_package.py` 是课程包审计器，判据改动会直接影响所有课程包。
+改它之前/之后都跑一遍最小回归：
+
+```bash
+cd goal-oriented-pbl-course
+./scripts/run_tests.sh        # 全部用例，打印 PASS/FAIL
+./scripts/run_tests.sh -v     # 同时打印每个 fixture 的完整审计输出
+```
+
+`scripts/fixtures/` 下每个 fixture 都是一个最小课程包，**只注入一处缺陷**，用来锁住一条判据：
+
+| fixture | 期望 | 锁住的判据 |
+|---|---|---|
+| `base_clean` | 0E / 0W | 基线：一个合法包必须完全干净 |
+| `dup_mapping` | 0E / 1W | 两个 step 映射同一字段 → WARN |
+| `uncovered_field` | 1E / 0W | 可预填字段没被任何 step 覆盖 → ERROR |
+| `unprefillable_field` | 0E / 1W | 不可预填类型未覆盖 → WARN（不是 ERROR） |
+| `prefill_never_no_reason` | 1E / 0W | `prefill: never` 缺 `prefill_reason` → ERROR |
+| `thinking_not_taught` | 0E / 1W | 开了决策证据但包里没教 → WARN |
+| `zip_wrapped.zip` | 1E / 0W | zip 多包一层顶层目录 → ERROR |
+
+fixture 由 `scripts/make_fixtures.py` 生成（改了 base 结构才需要重跑）；
+`run_tests.sh` 直接调用审计器，无第三方依赖。
+
 ## 快速上手（建课技能）
 
 安装后对 Agent 说：

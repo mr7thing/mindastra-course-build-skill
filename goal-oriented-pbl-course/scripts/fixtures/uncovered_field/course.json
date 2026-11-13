@@ -1,0 +1,496 @@
+{
+  "title": "审计器回归样本",
+  "description": "仅用于 audit_package.py 回归测试的最小课程包。",
+  "status": "draft",
+  "pricing_type": "free",
+  "chapters": [
+    {
+      "title": "第 1 课：从素材到方向",
+      "chapter_type": "markdown",
+      "content_file": "chapters/01-direction.md",
+      "summary": "把素材摊开、写下自己的判断，再与 AI 的结论对照，形成可追溯的方向依据。",
+      "duration_minutes": 30,
+      "order_index": 0
+    },
+    {
+      "title": "第 2 课：把方向做成结果",
+      "chapter_type": "markdown",
+      "content_file": "chapters/02-result.md",
+      "summary": "把第一课的方向落成可提交的结果，并说明你在过程中删改了什么。",
+      "duration_minutes": 30,
+      "order_index": 1
+    }
+  ],
+  "assignments": [
+    {
+      "title": "方向与结果",
+      "description": "选一个方向，做出结果，并说清凭什么这么选。",
+      "input_materials": [
+        "示例文章",
+        "示例图片"
+      ],
+      "milestone_specs": [
+        {
+          "milestone_key": "direction_pick",
+          "related_chapter_titles": [
+            "第 1 课：从素材到方向"
+          ],
+          "title": "确定方向",
+          "description": "确定方向：把这一课学到的东西落成一个可提交的结果。",
+          "rules": [
+            "确定方向的成果必须能指回课程素材，不得编造。",
+            "提交时必须附 AI 互动记录与个人分析/反思。"
+          ],
+          "steps": [
+            {
+              "order_index": 1,
+              "title": "读素材，写下第一判断",
+              "description": "打开示例素材通读一遍，先自己写下判断，不查资料也不问 AI。",
+              "estimated_minutes": 15,
+              "resources": [
+                {
+                  "type": "example",
+                  "title": "示例素材"
+                }
+              ],
+              "checklist": [
+                {
+                  "text": "已通读素材并标出三处依据",
+                  "required": true
+                },
+                {
+                  "text": "已用自己的话写下判断",
+                  "required": true
+                }
+              ]
+            },
+            {
+              "order_index": 2,
+              "title": "与 AI 对照后定稿",
+              "description": "把同样问题交给 AI，留下说得对的，删掉说得空的，形成最终版本。",
+              "estimated_minutes": 15,
+              "resources": [
+                {
+                  "type": "example",
+                  "title": "AI 输出示例"
+                }
+              ],
+              "checklist": [
+                {
+                  "text": "已记录 AI 互动要点",
+                  "required": true
+                },
+                {
+                  "text": "已写出删改理由",
+                  "required": true
+                }
+              ]
+            },
+            {
+              "order_index": 3,
+              "title": "提交前自检",
+              "description": "按里程碑指南逐条自查，确认依据能指回素材、AI 记录与反思齐备。",
+              "estimated_minutes": 5,
+              "resources": [],
+              "checklist": [
+                {
+                  "text": "AI 互动记录完整",
+                  "required": true
+                },
+                {
+                  "text": "个人分析/反思已写",
+                  "required": true
+                }
+              ]
+            }
+          ],
+          "checklist": [
+            {
+              "text": "成果能指回课程素材，没有编造",
+              "required": true
+            },
+            {
+              "text": "附上 AI 互动记录",
+              "required": true
+            },
+            {
+              "text": "附上个人分析/反思",
+              "required": true
+            }
+          ],
+          "thinking_requirement": {
+            "require_on_formal_submit": false,
+            "require_on_process_draft": false,
+            "required_fields": []
+          },
+          "guide_file": "guides/direction_pick.md",
+          "submission_fields": [
+            {
+              "key": "direction_statement",
+              "title": "方向说明",
+              "type": "markdown",
+              "required": true,
+              "guidance": "方向说明：说清你为什么这么做，依据要能指回课程素材。"
+            },
+            {
+              "key": "extra_note",
+              "title": "补充说明",
+              "type": "text",
+              "required": true,
+              "guidance": "补充说明你的判断依据。"
+            }
+          ],
+          "evaluation_template": {
+            "dimensions": [
+              {
+                "key": "grounding",
+                "title": "依据是否扎根素材",
+                "weight": 0.5,
+                "agent_indicators": [
+                  "判断是否能指回素材里的具体段落或图片？",
+                  "有没有出现素材里并不存在的说法？"
+                ],
+                "levels": [
+                  {
+                    "level": 1,
+                    "label": "未达标",
+                    "indicator": "判断没有依据，全凭感觉。"
+                  },
+                  {
+                    "level": 2,
+                    "label": "及格",
+                    "indicator": "有依据但指代含糊。"
+                  },
+                  {
+                    "level": 3,
+                    "label": "良好",
+                    "indicator": "依据能指回具体段落。"
+                  },
+                  {
+                    "level": 4,
+                    "label": "优秀",
+                    "indicator": "依据清晰且能说明取舍。"
+                  }
+                ]
+              },
+              {
+                "key": "ai_use",
+                "title": "AI 使用是否有判断",
+                "weight": 0.5,
+                "agent_indicators": [
+                  "有没有记录 AI 给了什么、自己改了什么？",
+                  "删改理由是否具体？"
+                ],
+                "levels": [
+                  {
+                    "level": 1,
+                    "label": "未达标",
+                    "indicator": "直接粘贴 AI 输出。"
+                  },
+                  {
+                    "level": 2,
+                    "label": "及格",
+                    "indicator": "有少量修改但没写理由。"
+                  },
+                  {
+                    "level": 3,
+                    "label": "良好",
+                    "indicator": "有删改并写了理由。"
+                  },
+                  {
+                    "level": 4,
+                    "label": "优秀",
+                    "indicator": "能说明为什么这样改。"
+                  }
+                ]
+              }
+            ],
+            "core_comment_prompt": "请评价学员的判断是否扎根素材，以及 AI 使用是否带有自己的取舍；同时评价思考层是否交代了为什么这么选。"
+          },
+          "interaction": {
+            "schema_version": 1,
+            "enabled": true,
+            "default_mode": "full",
+            "steps": [
+              {
+                "key": "pick_angle",
+                "question": "你为什么选这个方向？",
+                "allow_other": true,
+                "ai_guided": false,
+                "maps_to": "direction_statement"
+              },
+              {
+                "key": "confirm_final",
+                "question": "定稿前确认：依据能指回素材吗？",
+                "options": [
+                  {
+                    "id": "yes",
+                    "label": "能，已逐条核对"
+                  },
+                  {
+                    "id": "no",
+                    "label": "还不能，我要回去补"
+                  }
+                ],
+                "allow_other": false,
+                "ai_guided": false
+              }
+            ],
+            "fallback": {
+              "text": "AI 不可用时，按上面两步手工完成：先写下判断并标出依据，再逐条核对后定稿。"
+            }
+          }
+        },
+        {
+          "milestone_key": "result_delivery",
+          "related_chapter_titles": [
+            "第 2 课：把方向做成结果"
+          ],
+          "title": "交付结果",
+          "description": "交付结果：把这一课学到的东西落成一个可提交的结果。",
+          "rules": [
+            "交付结果的成果必须能指回课程素材，不得编造。",
+            "提交时必须附 AI 互动记录与个人分析/反思。"
+          ],
+          "steps": [
+            {
+              "order_index": 1,
+              "title": "读素材，写下第一判断",
+              "description": "打开示例素材通读一遍，先自己写下判断，不查资料也不问 AI。",
+              "estimated_minutes": 15,
+              "resources": [
+                {
+                  "type": "example",
+                  "title": "示例素材"
+                }
+              ],
+              "checklist": [
+                {
+                  "text": "已通读素材并标出三处依据",
+                  "required": true
+                },
+                {
+                  "text": "已用自己的话写下判断",
+                  "required": true
+                }
+              ]
+            },
+            {
+              "order_index": 2,
+              "title": "与 AI 对照后定稿",
+              "description": "把同样问题交给 AI，留下说得对的，删掉说得空的，形成最终版本。",
+              "estimated_minutes": 15,
+              "resources": [
+                {
+                  "type": "example",
+                  "title": "AI 输出示例"
+                }
+              ],
+              "checklist": [
+                {
+                  "text": "已记录 AI 互动要点",
+                  "required": true
+                },
+                {
+                  "text": "已写出删改理由",
+                  "required": true
+                }
+              ]
+            },
+            {
+              "order_index": 3,
+              "title": "提交前自检",
+              "description": "按里程碑指南逐条自查，确认依据能指回素材、AI 记录与反思齐备。",
+              "estimated_minutes": 5,
+              "resources": [],
+              "checklist": [
+                {
+                  "text": "AI 互动记录完整",
+                  "required": true
+                },
+                {
+                  "text": "个人分析/反思已写",
+                  "required": true
+                }
+              ]
+            }
+          ],
+          "checklist": [
+            {
+              "text": "成果能指回课程素材，没有编造",
+              "required": true
+            },
+            {
+              "text": "附上 AI 互动记录",
+              "required": true
+            },
+            {
+              "text": "附上个人分析/反思",
+              "required": true
+            }
+          ],
+          "thinking_requirement": {
+            "require_on_formal_submit": false,
+            "require_on_process_draft": false,
+            "required_fields": []
+          },
+          "guide_file": "guides/result_delivery.md",
+          "submission_fields": [
+            {
+              "key": "result_notes",
+              "title": "结果说明",
+              "type": "text",
+              "required": true,
+              "guidance": "结果说明：说清你为什么这么做，依据要能指回课程素材。"
+            }
+          ],
+          "evaluation_template": {
+            "dimensions": [
+              {
+                "key": "grounding",
+                "title": "依据是否扎根素材",
+                "weight": 0.5,
+                "agent_indicators": [
+                  "判断是否能指回素材里的具体段落或图片？",
+                  "有没有出现素材里并不存在的说法？"
+                ],
+                "levels": [
+                  {
+                    "level": 1,
+                    "label": "未达标",
+                    "indicator": "判断没有依据，全凭感觉。"
+                  },
+                  {
+                    "level": 2,
+                    "label": "及格",
+                    "indicator": "有依据但指代含糊。"
+                  },
+                  {
+                    "level": 3,
+                    "label": "良好",
+                    "indicator": "依据能指回具体段落。"
+                  },
+                  {
+                    "level": 4,
+                    "label": "优秀",
+                    "indicator": "依据清晰且能说明取舍。"
+                  }
+                ]
+              },
+              {
+                "key": "ai_use",
+                "title": "AI 使用是否有判断",
+                "weight": 0.5,
+                "agent_indicators": [
+                  "有没有记录 AI 给了什么、自己改了什么？",
+                  "删改理由是否具体？"
+                ],
+                "levels": [
+                  {
+                    "level": 1,
+                    "label": "未达标",
+                    "indicator": "直接粘贴 AI 输出。"
+                  },
+                  {
+                    "level": 2,
+                    "label": "及格",
+                    "indicator": "有少量修改但没写理由。"
+                  },
+                  {
+                    "level": 3,
+                    "label": "良好",
+                    "indicator": "有删改并写了理由。"
+                  },
+                  {
+                    "level": 4,
+                    "label": "优秀",
+                    "indicator": "能说明为什么这样改。"
+                  }
+                ]
+              }
+            ],
+            "core_comment_prompt": "请评价学员的判断是否扎根素材，以及 AI 使用是否带有自己的取舍；同时评价思考层是否交代了为什么这么选。"
+          },
+          "interaction": {
+            "schema_version": 1,
+            "enabled": true,
+            "default_mode": "full",
+            "steps": [
+              {
+                "key": "pick_angle",
+                "question": "你的结果说明了什么？",
+                "allow_other": true,
+                "ai_guided": false,
+                "maps_to": "result_notes"
+              },
+              {
+                "key": "confirm_final",
+                "question": "定稿前确认：依据能指回素材吗？",
+                "options": [
+                  {
+                    "id": "yes",
+                    "label": "能，已逐条核对"
+                  },
+                  {
+                    "id": "no",
+                    "label": "还不能，我要回去补"
+                  }
+                ],
+                "allow_other": false,
+                "ai_guided": false
+              }
+            ],
+            "fallback": {
+              "text": "AI 不可用时，按上面两步手工完成：先写下判断并标出依据，再逐条核对后定稿。"
+            }
+          }
+        }
+      ],
+      "submission_requirements": [
+        {
+          "title": "AI 互动记录",
+          "required": true
+        },
+        {
+          "title": "个人分析 / 反思",
+          "required": true
+        }
+      ],
+      "rubric": [
+        {
+          "criterion": "方向清晰",
+          "weight": 0.4
+        },
+        {
+          "criterion": "依据可追溯",
+          "weight": 0.35
+        },
+        {
+          "criterion": "结果完整",
+          "weight": 0.25
+        }
+      ]
+    }
+  ],
+  "practices": [
+    {
+      "title": "练习 1：素材通读",
+      "kind": "experience",
+      "chapter_title": "第 1 课：从素材到方向",
+      "submission_mode": "none",
+      "instruction": "通读示例素材，标出三处最有说服力的地方，并说明为什么是这三处。",
+      "description": "通读示例素材，标出三处最有说服力的地方。"
+    },
+    {
+      "title": "练习 2：对照 AI",
+      "kind": "training",
+      "chapter_title": "第 1 课：从素材到方向",
+      "submission_mode": "reflection",
+      "instruction": "把同样的问题交给 AI，记下它说得空、说得假的地方，写成一段反思。",
+      "description": "把同样问题交给 AI，记下它说得空的地方。"
+    }
+  ],
+  "tags": [
+    "回归样本"
+  ]
+}
